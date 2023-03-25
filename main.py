@@ -1,33 +1,74 @@
+import os
+import re
+import openai
 import streamlit as st
-from docquery import document, pipeline
-import requests
-from io import BytesIO
+from langchain.document_loaders import UnstructuredFileLoader
+from langchain.text_splitter import CharacterTextSplitter
 
-docquery_pipeline = pipeline('document-question-answering')
+os.environ["OPENAI_API_KEY"] = "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"
 
-@st.cache
-def load_document_from_url(url):
-    response = requests.get(url)
-    return document.load_document(BytesIO(response.content))
+# Function to extract sections from the text
+def extract_sections(text):
+    sections = {
+        "title": "",
+        "abstract": "",
+        "background": "",
+        "summary": "",
+        "description": "",
+        "claims": ""
+    }
 
-st.title("Memory Standards Document Query")
+    sections["title"] = re.search(r"(?<=Title:)(.*?)(?=Abstract:)", text, re.DOTALL).group().strip()
+    sections["abstract"] = re.search(r"(?<=Abstract:)(.*?)(?=Background:)", text, re.DOTALL).group().strip()
+    sections["background"] = re.search(r"(?<=Background:)(.*?)(?=Summary:)", text, re.DOTALL).group().strip()
+    sections["summary"] = re.search(r"(?<=Summary:)(.*?)(?=Detailed Description:)", text, re.DOTALL).group().strip()
+    sections["description"] = re.search(r"(?<=Detailed Description:)(.*?)(?=Claims:)", text, re.DOTALL).group().strip()
+    sections["claims"] = re.search(r"(?<=Claims:)(.*)", text, re.DOTALL).group().strip()
 
-pdf_urls = []
-for i in range(14):
-    pdf_url = st.text_input(f"PDF {i+1} URL:")
-    if pdf_url:
-        pdf_urls.append(pdf_url)
+    return sections
 
-question = st.text_input("Enter your question:")
+# Function to get GPT-3 response
+def get_gpt3_response(prompt, max_tokens=100):
+    response = openai.Completion.create(
+        engine="text-davinci-002",
+        prompt=prompt,
+        max_tokens=max_tokens,
+        n=1,
+        stop=None,
+        temperature=0.5,
+    )
 
-if st.button("Ask") and question and pdf_urls:
-    results = []
-    for url in pdf_urls:
-        doc = load_document_from_url(url)
-        result = docquery_pipeline(question=question, **doc.context)
-        results.append((url, result["answer"]))
+    return response.choices[0].text.strip()
 
-    st.write("Results:")
-    for url, answer in results:
-        st.write(f"From {url}:")
-        st.write(answer)
+st.title("AI Patent Assistant")
+
+uploaded_file = st.file_uploader("Upload a patent PDF", type=["pdf"])
+
+if uploaded_file is not None:
+    loader = UnstructuredFileLoader(uploaded_file, mode="text")
+    document = loader.load()
+    sections = extract_sections(document)
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+
+    # Task 1: Summarize the background
+    background_summary_prompt = f"Summarize the following patent background in 100 words or less: {sections['background']}"
+    background_summary = get_gpt3_response(background_summary_prompt, max_tokens=100)
+
+    # Task 2: Explain the first claim with relevant text from the summary or description
+    first_claim = sections["claims"].split("\n")[0].strip()
+    claim_explanation_prompt = (
+        f"Explain the first claim of the patent '{first_claim}' in 100 words or less, "
+        f"with reference to the patent summary or detailed description: {sections['summary']} {sections['description']}"
+    )
+    first_claim_explanation = get_gpt3_response(claim_explanation_prompt, max_tokens=100)
+
+    # Display the results of tasks 1 and 2
+    st.write("Background summary:", background_summary)
+    st.write("First claim explanation:", first_claim_explanation)
+
+    # Task 3: Prompt user to input a target company or standard
+    target = st.text_input("Enter a target company or standard")
+
+    if target:
+        # Task 4: Run GPT-3 query
+        query = f"Does {target} provide a similar technology as the patent claim: {
