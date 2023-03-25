@@ -48,7 +48,7 @@ if uploaded_file is not None:
     with open("uploaded_patent.pdf", "wb") as f:
         f.write(uploaded_file.getvalue())
 
-    loader = UnstructuredFileLoader("uploaded_patent.pdf", mode="text")
+    loader = UnstructuredFileLoader("uploaded_patent.pdf", mode="elements")
     document = loader.load()
     sections = extract_sections(document)
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
