@@ -50,7 +50,7 @@ if uploaded_file is not None:
 
     loader = UnstructuredFileLoader("uploaded_patent.pdf", mode="elements")
     document = loader.load()
-    sections = extract_sections(document)
+    sections = extract_sections(" ".join(document))
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 
     # Task 1: Summarize the background
