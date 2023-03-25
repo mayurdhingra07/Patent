@@ -71,4 +71,8 @@ if uploaded_file is not None:
 
     if target:
         # Task 4: Run GPT-3 query
-        query = f"Does {target} provide a similar technology as the patent claim: {
+        query = f"Does {target} provide a similar technology as the patent claim: {first_claim}?"
+        gpt3_response = get_gpt3_response(query, max_tokens=100)
+
+        # Display the result of Task 4
+        st.write("GPT-3 response:", gpt3_response)
