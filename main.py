@@ -45,7 +45,10 @@ st.title("AI Patent Assistant")
 uploaded_file = st.file_uploader("Upload a patent PDF", type=["pdf"])
 
 if uploaded_file is not None:
-    loader = UnstructuredFileLoader(uploaded_file, mode="text")
+    with open("uploaded_patent.pdf", "wb") as f:
+        f.write(uploaded_file.getvalue())
+
+    loader = UnstructuredFileLoader("uploaded_patent.pdf", mode="text")
     document = loader.load()
     sections = extract_sections(document)
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
